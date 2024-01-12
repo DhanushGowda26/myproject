@@ -1,0 +1,65 @@
+pipeline {
+    agent any
+    
+    stages {
+        stage('Clone Repository') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Terraform Init') {
+            steps {
+                script {
+                    dir('terraform') {
+                        // Check if Terraform is already initialized
+                        if (!fileExists('.terraform')) {
+                            // Download and install Terraform
+                            def terraformHome = tool name: 'Terraform', type: 'org.jenkinsci.plugins.terraform.TerraformToolInstaller', version: "${TERRAFORM_VERSION}"
+                            env.PATH = "${terraformHome}/bin:${env.PATH}"
+
+                            // Initialize Terraform
+                            sh 'terraform init'
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Terraform Format and Validate') {
+            steps {
+                script {
+                    dir('terraform') {
+                        // Format Terraform files
+                        sh 'terraform fmt -check=true -diff=true -write=false'
+
+                        // Validate Terraform configuration
+                        sh 'terraform validate'
+                    }
+                }
+            }
+        }
+
+        stage('Terraform Plan') {
+            steps {
+                script {
+                    dir('terraform') {
+                        // Create Terraform plan
+                        sh 'terraform plan -out=myplan.out'
+                    }
+                }
+            }
+        }
+
+        stage('Terraform Apply') {
+            steps {
+                script {
+                    dir('terraform') {
+                        // Apply Terraform plan
+                        sh 'terraform apply -auto-approve myplan.out'
+                    }
+                }
+            }
+        }
+    }
+}
